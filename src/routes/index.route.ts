@@ -15,6 +15,13 @@ router.use("/units", unitRoute);
 router.use("/categories", categoryRoute);
 router.use("/customers", customerRoute);
 router.use("/analytics", analyticRoute);
+router.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
 
 router.use(errorHandler);
 
