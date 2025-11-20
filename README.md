@@ -89,7 +89,6 @@ npm install
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
 PORT=3000
-NODE_ENV=development
 ```
 
 4. Generate Prisma Client
