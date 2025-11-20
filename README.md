@@ -88,7 +88,7 @@ npm install
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
-PORT=3000
+PORT=8080
 ```
 
 4. Generate Prisma Client
@@ -111,7 +111,7 @@ npm run prisma:migrate
 npm run dev
 ```
 
-Server จะรันที่ `http://localhost:3000`
+Server จะรันที่ `http://localhost:8080`
 
 ### Production Build
 
