@@ -1,0 +1,21 @@
+import { Router } from 'express';
+import productRoute from './product.route';
+import orderRoute from './order.route';
+import unitRoute from'./unit.route';
+import categoryRoute from './category.route';
+import customerRoute from './customer.route';
+import analyticRoute from './analytics.routes';
+import { errorHandler } from '../middlewares/errorHandler';
+
+const router = Router();
+
+router.use("/products",productRoute);
+router.use("/orders",orderRoute);
+router.use("/units", unitRoute);
+router.use("/categories", categoryRoute);
+router.use("/customers", customerRoute);
+router.use("/analytics", analyticRoute);
+
+router.use(errorHandler);
+
+export default router;

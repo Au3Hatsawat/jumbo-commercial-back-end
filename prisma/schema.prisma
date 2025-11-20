@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. User / Customer Management
+// ==========================================
+
+model Customer {
+  id          Int      @id @default(autoincrement())
+  name        String?
+  phoneNumber String   @unique // ใช้เบอร์โทรเป็น Member ID
+  points      Int      @default(0) // แต้มสะสม
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  orders      Order[]
+  
+  // Relation to Analytics
+  factSales   FactSale[]
+
+  @@map("customers")
+}
+
+// ==========================================
+// 2. Product & Stock Management
+// ==========================================
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  nameTh    String   @unique
+  nameEn    String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products  Product[]
+  
+  // Relation to Analytics
+  factSales FactSale[]
+
+  @@map("categories")
+}
+
+model Unit {
+  id        Int      @id @default(autoincrement())
+  nameTh    String   @unique
+  nameEn    String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products  Product[]
+
+  @@map("units")
+}
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  barcode      String   @unique
+  name         String
+  description  String?
+  imageUrl     String?
+
+  // --- Foreign Keys ---
+  categoryId   Int
+  category     Category @relation(fields: [categoryId], references: [id])
+
+  unitId       Int
+  unit         Unit     @relation(fields: [unitId], references: [id])
+  
+  // --- Pricing & Cost ---
+  sellingPrice Decimal  @db.Decimal(10, 2)
+  averageCost  Decimal  @default(0) @db.Decimal(10, 2)
+
+  currentStock Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockLogs    StockLog[]
+  orderItems   OrderItem[]
+  
+  // Relation to Analytics
+  factSales    FactSale[]
+
+  @@map("products")
+}
+
+model StockLog {
+  id         Int       @id @default(autoincrement())
+  
+  productId  Int
+  product    Product   @relation(fields: [productId], references: [id])
+  
+  quantity   Int       
+  type       StockType 
+  
+  costPrice  Decimal?  @db.Decimal(10, 2) 
+  
+  note       String?   
+  createdAt  DateTime  @default(now())
+
+  @@map("stock_logs")
+}
+
+enum StockType {
+  RESTOCK
+  SALE
+  ADJUSTMENT
+  DAMAGED
+  RETURN
+}
+
+// ==========================================
+// 3. Order / Transaction (Operational)
+// ==========================================
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  orderNo       String      @unique
+  
+  customerId    Int?
+  customer      Customer?   @relation(fields: [customerId], references: [id])
+  
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  paymentMethod String?     
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  items         OrderItem[]
+  
+  // Relation to Analytics
+  factSales     FactSale[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  
+  orderId    Int
+  order      Order    @relation(fields: [orderId], references: [id])
+  
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id])
+  
+  quantity   Int
+  
+  // Snapshot Data
+  price      Decimal  @db.Decimal(10, 2)
+  costAtSale Decimal  @db.Decimal(10, 2)
+
+  @@map("order_items")
+}
+
+// ==========================================
+// 4. Analytics / Data Warehouse (Fact Tables)
+// ==========================================
+// 
+
+model FactSale {
+  id          BigInt   @id @default(autoincrement()) // ใช้ BigInt รองรับข้อมูลปริมาณมาก
+  
+  // --- Dimensions (เชื่อมโยงกลับไปตารางหลัก) ---
+  orderId     Int
+  order       Order    @relation(fields: [orderId], references: [id])
+  
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+  
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  
+  customerId  Int?     
+  customer    Customer? @relation(fields: [customerId], references: [id])
+
+  // --- Time Dimension ---
+  dateKey     DateTime @db.Date // เก็บวันที่แบบไม่มีเวลา (เช่น 2025-11-21) เพื่อ Group By ง่าย
+  timeKey     DateTime // เก็บเวลาเต็ม
+  
+  // --- Measures (ตัวเลขสำหรับคำนวณ) ---
+  quantity    Int
+  totalPrice  Decimal  @db.Decimal(12, 2) // ยอดขายรวมของ item นี้
+  totalCost   Decimal  @db.Decimal(12, 2) // ต้นทุนรวมของ item นี้
+  profit      Decimal  @db.Decimal(12, 2) // กำไร (Price - Cost)
+
+  createdAt   DateTime @default(now())
+
+  @@index([dateKey])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("fact_sales")
+}
+
+model FactDailySummary {
+  id          Int      @id @default(autoincrement())
+  
+  date        DateTime @unique @db.Date // 1 วัน มี 1 แถว
+  
+  // --- Aggregated Measures (สรุปยอดรายวัน) ---
+  totalOrders Int      @default(0)
+  totalSales  Decimal  @default(0) @db.Decimal(12, 2)
+  totalCost   Decimal  @default(0) @db.Decimal(12, 2)
+  totalProfit Decimal  @default(0) @db.Decimal(12, 2)
+  
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@map("fact_daily_summaries")
+}
