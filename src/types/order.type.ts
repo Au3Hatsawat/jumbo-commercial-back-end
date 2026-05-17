@@ -1,7 +1,7 @@
-import { Prisma, Product } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
 
 export interface IOrderItemDto {
-    productId: number;
+    sellingUnitId: number;
     quantity: number;
 }
 
@@ -14,10 +14,8 @@ export interface ICreateOrderDto {
 }
 
 export type OrderWithRelations = Prisma.OrderGetPayload<{
-    include: { items: { include: { product: true } }, customer: true }
+    include: {
+        items: true;
+        customer: true;
+    }
 }>;
-
-export type ProductSaleInfo = Pick<
-    Product, 
-    'id' | 'sellingPrice' | 'averageCost' | 'currentStock'
->;

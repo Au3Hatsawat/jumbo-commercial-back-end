@@ -1,4 +1,4 @@
-import { Prisma, StockType } from "../generated/prisma/client";
+import { Prisma, SellType, StockType } from "../generated/prisma/client";
 
 export interface IRestockDto {
     quantityToAdd: number;
@@ -22,17 +22,37 @@ export interface ProductResponse {
 export type ProductWithRelations = Prisma.ProductGetPayload<{
     include: {
         category: true,
-        unit: true,
+        baseUnit: true,
+        sellingUnits: {
+            include: {
+                unit: true
+            }
+        },
         stockLogs: true 
     }
 }>
 
-export interface ICreateProductDto {
+export interface ISellingUnitDto {
     barcode: string;
-    name: string;
-    sellingPrice: number;
-    categoryId: number; 
     unitId: number;
+    multiplier: number;
+    price: number;
+    sellType: SellType;
+}
+
+export interface ICreateProductDto {
+    name: string;
+    categoryId: number; 
+    baseUnitId: number;
     description?: string;
     imageUrl?: string;
+    sellingUnits: ISellingUnitDto[];
+}
+
+export interface IAddSellingUnitDto {
+    barcode: string;
+    unitId: number;
+    multiplier: number;
+    price: number;
+    sellType: SellType; 
 }

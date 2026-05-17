@@ -5,6 +5,7 @@ import { AnalyticsRepository } from "../repositories/analytics.repository";
 import { OrderWithRelations } from "../types/order.type";
 import { CategoryRepository } from "../repositories/category.repositoy";
 import { ProductRepository } from "../repositories/product.repository";
+import dayjs from '../libs/dayjs';
 
 export class AnalyticsService {
     constructor(
@@ -17,46 +18,54 @@ export class AnalyticsService {
         const orderItems = order.items;
         if (!orderItems || orderItems.length === 0) return;
 
+        const tz = process.env.BUSINESS_TIMEZONE || 'UTC';
+        const dateString = dayjs(order.createdAt).tz(tz).format('YYYY-MM-DD');
+        const dateKey = new Date(`${dateString}T00:00:00.000Z`);
         const now = new Date();
-        // สร้าง DateKey แบบตัดเวลาทิ้ง (Set เป็น 00:00:00 UTC หรือตาม timezone local)
-        const dateKey = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         const factSalesData: Prisma.FactSaleCreateManyInput[] = [];
 
         let orderTotalCost = new Decimal(0);
         let orderTotalProfit = new Decimal(0);
 
+        const productIds = orderItems.map(item => item.productId);
+        const productsInfo = await this.productRepository.findManyByIds(productIds, tx);
+        const categoryMap: Record<number, number> = {};
+        productsInfo.forEach(p => {
+            categoryMap[p.id] = p.categoryId;
+        });
+
         for (const item of orderItems) {
             const quantity = item.quantity;
-            const price = new Decimal(item.price); // ราคาขายต่อหน่วย
-            const cost = new Decimal(item.costAtSale); // ต้นทุนต่อหน่วย (snapshot)
+            const price = new Decimal(item.priceAtSale);
+            const cost = new Decimal(item.costAtSale);  
 
             const totalPrice = price.mul(quantity);
             const totalCost = cost.mul(quantity);
+
             const profit = totalPrice.minus(totalCost);
 
-            // เก็บยอดรวมเพื่ออัปเดต Daily Summary
             orderTotalCost = orderTotalCost.plus(totalCost);
             orderTotalProfit = orderTotalProfit.plus(profit);
 
             factSalesData.push({
                 orderId: order.id,
                 productId: item.productId,
-                categoryId: item.product.categoryId, // ต้องแน่ใจว่าใน OrderWithRelations include product มาด้วย
+                categoryId: categoryMap[item.productId],
                 customerId: order.customerId,
                 dateKey: dateKey,
                 timeKey: now,
+                sellType: item.sellType || 'RETAIL',
                 quantity: quantity,
+                baseUnitQuantity: quantity * item.multiplierAtSale,
                 totalPrice: totalPrice,
                 totalCost: totalCost,
                 profit: profit
             });
         }
 
-        // 1. Insert ลง FactSale (ทีเดียวหลาย row)
         await this.analyticsRepository.createManyFactSales(factSalesData, tx);
 
-        // 2. Update/Insert ลง FactDailySummary
         await this.analyticsRepository.upsertDailySummary(dateKey, {
             totalOrders: 1,
             totalSales: order.totalAmount,
@@ -64,9 +73,13 @@ export class AnalyticsService {
             totalProfit: orderTotalProfit
         }, tx);
     }
+
     public async getDashboardSummary(days: number = 30) {
-        const endDate = new Date();
-        const startDate = new Date();
+        const tz = process.env.BUSINESS_TIMEZONE || 'UTC';
+        const dateString = dayjs().tz(tz).format('YYYY-MM-DD');
+
+        const endDate = new Date(dateString);
+        const startDate = new Date(dateString);
         startDate.setDate(startDate.getDate() - days);
 
         const summaries = await this.analyticsRepository.getDailySummaries(startDate, endDate);
@@ -92,33 +105,85 @@ export class AnalyticsService {
             const product = productsInfo.find(p => p.id === stat.productId);
             return {
                 productId: stat.productId,
-                productName: product ? product.name : 'สินค้าไม่ระบุชื่อ', 
+                productName: product ? product.name : 'สินค้าไม่ระบุชื่อ',
                 _sum: {
                     quantity: stat._sum.quantity,
-                    totalPrice: Number(stat._sum.totalPrice || 0) 
+                    baseUnitQuantity: stat._sum.baseUnitQuantity,
+                    totalPrice: Number(stat._sum.totalPrice || 0)
                 }
             };
         });
     }
 
-    public async getSalesByCategoryDistribution(days: number = 30) {
-        const endDate = new Date();
-        const startDate = new Date();
+    public async getSalesByCategoryDistribution(lang: string, days: number = 30) {
+        const tz = process.env.BUSINESS_TIMEZONE || 'UTC';
+        const dateString = dayjs().tz(tz).format('YYYY-MM-DD');
+
+        const endDate = new Date(dateString);
+        const startDate = new Date(dateString);
         startDate.setDate(startDate.getDate() - days);
 
-        // 1. ดึงยอดขายแยกตาม Category ID
         const rawStats = await this.analyticsRepository.getSalesByCategory(startDate, endDate);
+        const categories = await this.categoryRepository.findAllCategory({});
 
-        // 2. ดึงชื่อ Category ทั้งหมดเพื่อมา map ชื่อ
-        // (หรือจะ select where id in [...] ก็ได้ถ้าหมวดหมู่เยอะ)
-        const categories = await this.categoryRepository.findAllCategory();
-
-        // 3. Map ข้อมูลรวมกัน
         return rawStats.map(stat => {
             const category = categories.find(c => c.id === stat.categoryId);
             return {
                 categoryId: stat.categoryId,
-                categoryName: category ? category.nameTh : 'Unknown',
+                categoryName: category ? (lang === 'en' ? category.nameEn : category.nameTh) : 'Unknown',
+                totalSales: Number(stat._sum.totalPrice || 0)
+            };
+        });
+    }
+
+    public async getPaymentMethodDistribution(lang: string, days: number = 30) {
+        const tz = process.env.BUSINESS_TIMEZONE || 'Asia/Bangkok';
+        
+        const endDate = dayjs().tz(tz).endOf('day').toDate();
+        const startDate = dayjs().tz(tz).subtract(days, 'day').startOf('day').toDate();
+
+        const rawStats = await this.analyticsRepository.getSalesByPaymentMethod(startDate, endDate);
+
+        return rawStats.map(stat => {
+            const method = stat.paymentMethod || 'UNKNOWN';
+            let name = method;
+            
+            if (lang === 'th') {
+                if (method.toUpperCase() === 'CASH') name = 'เงินสด';
+                else if (method.toUpperCase() === 'QR') name = 'โอนเงิน/สแกน';
+                else if (method.toUpperCase() === 'TRANSFER' || method.toUpperCase() === 'PROMPTPAY') name = 'โอนเงิน/สแกน';
+                else if (method.toUpperCase() === 'CREDIT_CARD') name = 'บัตรเครดิต';
+                else name = 'ไม่ระบุ';
+            } else {
+                name = method.replace('_', ' ').toUpperCase();
+            }
+
+            return {
+                paymentMethod: method,
+                name: name, 
+                value: Number(stat._sum.totalAmount || 0)
+            };
+        });
+    }
+
+    public async getTopCustomers() {
+        const topSpenders = await this.analyticsRepository.getTopCustomers(5);
+        if (topSpenders.length === 0) return [];
+
+        const customerIds = topSpenders.map(c => c.customerId as number);
+        
+        const customersInfo = await this.analyticsRepository.getCustomersByIds(customerIds);
+
+        return topSpenders.map(stat => {
+            const customer = customersInfo.find(c => c.id === stat.customerId);
+            
+            const displayName = customer?.name 
+                ? customer.name 
+                : (customer?.phoneNumber ? customer.phoneNumber : 'ลูกค้าทั่วไป');
+
+            return {
+                customerId: stat.customerId,
+                customerName: displayName,
                 totalSales: Number(stat._sum.totalPrice || 0)
             };
         });

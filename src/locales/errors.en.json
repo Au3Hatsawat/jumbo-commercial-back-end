@@ -1,0 +1,37 @@
+{
+    "UNKNOWN_ERROR": {
+        "status": 500,
+        "title": "Internal Server Error",
+        "message": "An unexpected error occurred."
+    },
+    "CU000000": {
+        "status": 400,
+        "title": "Bad Request",
+        "message": "Invalid phone number (must be a 10-digit number starting with 0)."
+    },
+    "CU000100": {
+        "status": 400,
+        "title": "Bad Request",
+        "message": "Invalid phone number (must be a 10-digit number starting with 0)."
+    },
+    "OD000000": {
+        "status": 400,
+        "title": "Bad Request",
+        "message": "Invalid phone number (must be a 10-digit number starting with 0)."
+    },
+    "OD000001": {
+        "status": 404,
+        "title": "Not Found",
+        "message": "Selling unit not found."
+    },
+    "OD000002": {
+        "status": 400,
+        "title": "Bad Request",
+        "message": "Insufficient stock for the requested items."
+    },
+    "OD000100": {
+        "status": 404,
+        "title": "Not Found",
+        "message": "Order not found."
+    }
+}

@@ -10,7 +10,42 @@ export class CategoryRepository {
         return this.getClient(tx).category.create({ data });
     }
 
-    public async findAllCategory(tx?: PrismaTxClient): Promise<Category[]> {
-        return this.getClient(tx).category.findMany({});
+    public async findAllCategory(args: Partial<Category>, tx?: PrismaTxClient): Promise<Category[]> {
+        const query: Prisma.CategoryWhereInput = {};
+
+        if (args.isDeleted !== undefined) {
+            query.isDeleted = args.isDeleted;
+        }
+
+        return this.getClient(tx).category.findMany({
+            where: query
+        });
+    }
+
+    public async findCategoryById(args: Partial<Category>, tx?: PrismaTxClient): Promise<Category> {
+         const query: Prisma.CategoryWhereUniqueInput = {
+                id: args.id
+         };
+
+        if (args.isDeleted !== undefined) {
+            query.isDeleted = args.isDeleted;
+        }
+       
+        return this.getClient(tx).category.findUniqueOrThrow({
+            where: query
+        })
+    }
+
+    public async updateCategory(id: number, data: Prisma.CategoryUpdateInput, tx?: PrismaTxClient): Promise<Category> {
+        return this.getClient(tx).category.update({
+            where: { id },
+            data
+        })
+    }
+
+    public async deleteCategory(id: number, tx?: PrismaTxClient): Promise<Category> {
+        return this.getClient(tx).category.delete({
+            where: { id }
+        })
     }
 }

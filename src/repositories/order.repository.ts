@@ -10,12 +10,10 @@ export class OrderRepository {
     public async findAllOrder(tx?: PrismaTxClient): Promise<OrderWithRelations[]> {
         return this.getClient(tx).order.findMany({
             include: {
-                items: {
-                    include: { product: true }
-                },
                 customer: true,
+                items: true 
             },
-             orderBy: {
+            orderBy: {
                 createdAt: 'desc'
             }
         });
@@ -27,12 +25,10 @@ export class OrderRepository {
                 id: orderId,
             },
             include: {
-                items: {
-                    include: { product: true } 
-                },
                 customer: true,
+                items: true 
             }
-        })
+        });
     }
 
     public async createOrder(data: Prisma.OrderCreateInput, tx: PrismaTxClient): Promise<Order> {
@@ -56,11 +52,7 @@ export class OrderRepository {
             },
             include: {
                 customer: true,
-                items: {
-                    include: {
-                        product: true
-                    }
-                }
+                items: true 
             },
             orderBy: {
                 createdAt: 'desc'
@@ -68,4 +60,3 @@ export class OrderRepository {
         });
     }
 }
-

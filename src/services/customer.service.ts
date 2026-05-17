@@ -2,7 +2,7 @@ import { Customer, Prisma } from "../generated/prisma/client";
 import { prisma } from "../libs/prisma";
 import { CustomerRepository } from "../repositories/customer.repository";
 import { CustomerWithRelations } from "../types/customer.type";
-import { AppError } from "../utils/AppError";
+import { AppError } from "../utils/errutils/appError";
 
 export class CustomerService {
     constructor(private customerRepository: CustomerRepository) { }
@@ -11,6 +11,13 @@ export class CustomerService {
         return await prisma.$transaction(async (tx) => {
             const customers = await this.customerRepository.findAllCustomer(tx);
             return customers;
+        })
+    }
+
+    public async getCustomer(args: Partial<Customer>): Promise<Customer | null> {
+        return await prisma.$transaction(async (tx) => {
+            const customer = await this.customerRepository.findCustomer(args, tx);
+            return customer;
         })
     }
 
@@ -23,7 +30,7 @@ export class CustomerService {
             if (phoneToCheck) {
                 const phoneRegex = /^0\d{9}$/;
                 if (!phoneRegex.test(phoneToCheck)) {
-                    throw new AppError(400, 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0)', 'INVALID_PHONE_FORMAT');
+                    throw new AppError('CU000000');
                 }
             }
 
@@ -39,7 +46,7 @@ export class CustomerService {
             if (phoneToCheck) {
                 const phoneRegex = /^0\d{9}$/;
                 if (!phoneRegex.test(phoneToCheck)) {
-                    throw new AppError(400, 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0)', 'INVALID_PHONE_FORMAT');
+                    throw new AppError('CU000100');
                 }
             }
 

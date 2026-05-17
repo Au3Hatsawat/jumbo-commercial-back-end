@@ -1,4 +1,4 @@
-import { Prisma, FactDailySummary } from "../generated/prisma/client"; // ตัด FactSale ออกถ้าไม่ได้ใช้ตรงๆ
+import { Prisma, FactDailySummary } from "../generated/prisma/client"; 
 import { prisma, PrismaTxClient } from "../libs/prisma";
 import { CategorySalesResult, TopProductResult } from "../types/analytics.type";
 
@@ -43,8 +43,6 @@ export class AnalyticsRepository {
         });
     }
 
-    // --- Read Operations ---
-
     public async getDailySummaries(startDate: Date, endDate: Date): Promise<FactDailySummary[]> {
         return this.getClient().factDailySummary.findMany({
             where: {
@@ -64,6 +62,7 @@ export class AnalyticsRepository {
             by: ['productId'],
             _sum: {
                 quantity: true,
+                baseUnitQuantity: true,
                 totalPrice: true
             },
             orderBy: {
@@ -97,5 +96,47 @@ export class AnalyticsRepository {
         });
         
         return result as unknown as CategorySalesResult[];
+    }
+
+    public async getSalesByPaymentMethod(startDate: Date, endDate: Date) {
+        return this.getClient().order.groupBy({
+            by: ['paymentMethod'],
+            _sum: {
+                totalAmount: true
+            },
+            where: {
+                createdAt: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            }
+        });
+    }
+
+    public async getTopCustomers(limit: number = 5) {
+        return this.getClient().factSale.groupBy({
+            by: ['customerId'],
+            _sum: {
+                totalPrice: true
+            },
+            where: {
+                customerId: {
+                    not: null 
+                }
+            },
+            orderBy: {
+                _sum: {
+                    totalPrice: 'desc'
+                }
+            },
+            take: limit
+        });
+    }
+
+    public async getCustomersByIds(ids: number[]) {
+        return this.getClient().customer.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, name: true, phoneNumber: true }
+        });
     }
 }

@@ -7,8 +7,15 @@ export class CategoryService {
 
     public async getAllCategory(): Promise<Category[]> {
         return await prisma.$transaction(async (tx) => {
-            const categories = await this.categoryRepository.findAllCategory(tx);
+            const categories = await this.categoryRepository.findAllCategory({ isDeleted: false }, tx);
             return categories;
+        })
+    }
+
+    public async getCategoryById(id: number): Promise<Category> {
+        return await prisma.$transaction(async (tx) => {
+            const category = await this.categoryRepository.findCategoryById({ id, isDeleted: false }, tx);
+            return category;
         })
     }
 
@@ -16,6 +23,24 @@ export class CategoryService {
         return await prisma.$transaction(async (tx) => {
             const category = await this.categoryRepository.createCategory(data, tx);
 
+            return category;
+        })
+    }
+
+    public async updateCategory(id: number, data: Prisma.CategoryUpdateInput): Promise<Category> {
+        return await prisma.$transaction(async (tx) => {
+            const category = await this.categoryRepository.updateCategory(id, data, tx);
+
+            return category;
+        })
+    }
+
+    public async deleteCategory(id: number): Promise<Category> {
+        return await prisma.$transaction(async (tx) => {
+            const category = await this.categoryRepository.updateCategory(id,{
+                isDeleted: true,
+                deletedAt: new Date()
+            }, tx);
             return category;
         })
     }

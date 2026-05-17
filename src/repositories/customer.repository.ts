@@ -14,13 +14,18 @@ export class CustomerRepository {
                     include: {
                         items: {
                             include: {
-                                product: true
+                                product: true,
+                                sellingUnit: {
+                                    include: {
+                                        unit: true
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        })
+        });
     }
 
     public async findCustomer(args: Partial<Customer>, tx?: PrismaTxClient): Promise<Customer | null> {
@@ -45,10 +50,10 @@ export class CustomerRepository {
         return this.getClient(tx).customer.update({
             where: { id },
             data
-        })
+        });
     }
 
     public async createCustomer(data: Prisma.CustomerCreateInput, tx?: PrismaTxClient): Promise<Customer> {
-        return this.getClient(tx).customer.create({ data })
+        return this.getClient(tx).customer.create({ data });
     }
 }

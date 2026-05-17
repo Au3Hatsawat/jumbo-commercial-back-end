@@ -12,10 +12,35 @@ export class UnitService {
         })
     }
 
+    public async getUnitById(id: number): Promise<Unit> {
+        return await prisma.$transaction(async (tx) => {
+            const unit = await this.unitRepository.findUnitById(id,tx);
+            return unit;
+        })
+    }
+
     public async createUnit(data: Prisma.UnitCreateInput): Promise<Unit> {
         return await prisma.$transaction(async (tx) => {
             const unit = await this.unitRepository.createUnit(data,tx);
 
+            return unit;
+        })
+    }
+
+    public async updateUnit(id:number,data: Prisma.UnitUpdateInput): Promise<Unit> {
+        return await prisma.$transaction(async (tx) => {
+            const unit = await this.unitRepository.updateUnit(id , data , tx);
+
+            return unit;
+        })
+    }
+
+    public async deleteUnit(id:number): Promise<Unit> {
+        return await prisma.$transaction(async (tx) => {
+            const unit = await this.unitRepository.updateUnit(id,{
+                isDeleted: true,
+                deletedAt: new Date()
+            },tx);
             return unit;
         })
     }

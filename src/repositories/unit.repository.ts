@@ -11,6 +11,32 @@ export class UnitRepository {
     }
 
     public async findAllUnit(tx?: PrismaTxClient): Promise<Unit[]> {
-        return this.getClient(tx).unit.findMany({});
+        return this.getClient(tx).unit.findMany({
+            where: {
+                isDeleted: false
+            }
+        });
+    }
+
+    public async findUnitById(id:number, tx?: PrismaTxClient): Promise<Unit> {
+        return this.getClient(tx).unit.findUniqueOrThrow({
+            where: {
+                id,
+                isDeleted: false
+            }
+        })
+    }
+
+    public async updateUnit(id: number,data:Prisma.UnitUpdateInput, tx?: PrismaTxClient): Promise<Unit> {
+        return this.getClient(tx).unit.update({
+            where: {id},
+            data
+        })
+    }
+
+    public async deleteUnit(id: number, tx?: PrismaTxClient): Promise<Unit> {
+        return this.getClient(tx).unit.delete({
+            where: {id}
+        })
     }
 }

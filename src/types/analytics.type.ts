@@ -2,9 +2,10 @@ import { Prisma } from "../generated/prisma/client";
 
 export interface TopProductResult {
   productId: number;
-  productName: string;
+  productName?: string;
   _sum: {
-    quantity: number | null; 
+    quantity: number | null;
+    baseUnitQuantity: number | null; 
     totalPrice: Prisma.Decimal | null;
   };
 }
